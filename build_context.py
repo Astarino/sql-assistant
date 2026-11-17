@@ -45,21 +45,25 @@ def build_context(
     }
 
 
+def load_context(schema_name: str, glossary_path: Path | None = None) -> dict:
+    database_url = os.environ.get("DATABASE_URL", "dbname=sql_assistant_demo")
+    with psycopg.connect(
+        database_url,
+        row_factory=dict_row,
+        connect_timeout=5,
+        options="-c default_transaction_read_only=on -c statement_timeout=5000",
+    ) as connection:
+        return build_context(connection, schema_name, glossary_path)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Собрать контекст базы для SQL-помощника.")
     parser.add_argument("--schema", default="public")
     parser.add_argument("--glossary", type=Path, help="Необязательный словарь выбранной базы.")
     arguments = parser.parse_args()
-    database_url = os.environ.get("DATABASE_URL", "dbname=sql_assistant_demo")
 
     try:
-        with psycopg.connect(
-            database_url,
-            row_factory=dict_row,
-            connect_timeout=5,
-            options="-c default_transaction_read_only=on -c statement_timeout=5000",
-        ) as connection:
-            context = build_context(connection, arguments.schema, arguments.glossary)
+        context = load_context(arguments.schema, arguments.glossary)
     except (psycopg.Error, OSError, ValueError, KeyError, TypeError) as error:
         raise SystemExit(f"Не удалось собрать контекст: {error}") from None
 
