@@ -1,0 +1,335 @@
+{
+  "model": "qwen3.5:4b",
+  "summary": {
+    "total": 15,
+    "action_correct": 12,
+    "correct": 10,
+    "by_expected_action": {
+      "sql": {
+        "total": 9,
+        "action_correct": 9,
+        "correct": 7
+      },
+      "clarify": {
+        "total": 3,
+        "action_correct": 1,
+        "correct": 1
+      },
+      "unsupported": {
+        "total": 3,
+        "action_correct": 2,
+        "correct": 2
+      }
+    },
+    "by_status": {
+      "correct": 10,
+      "sql_error": 1,
+      "wrong_rows": 1,
+      "wrong_action": 3
+    }
+  },
+  "outcomes": [
+    {
+      "id": "active_clients",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COUNT(DISTINCT c.id) AS active_clients_count FROM clients c JOIN subscriptions s ON c.id = s.client_id WHERE s.status = 'active';",
+        "message": "Запрос возвращает количество уникальных клиентов, у которых есть хотя бы одна активная подписка."
+      },
+      "execution": {
+        "query": "SELECT COUNT(DISTINCT c.id) AS active_clients_count FROM \"public\".clients AS c JOIN \"public\".subscriptions AS s ON c.id = s.client_id WHERE s.status = 'active'",
+        "columns": [
+          "active_clients_count"
+        ],
+        "rows": [
+          [
+            2
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 11.559
+    },
+    {
+      "id": "active_pro_ids",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT s.id FROM public.subscriptions s WHERE s.plan_name = 'Pro' AND s.status = 'active' ORDER BY s.id DESC;",
+        "message": "Запрос возвращает идентификаторы активных подписок плана Pro, отсортированные по убыванию."
+      },
+      "execution": {
+        "query": "SELECT s.id FROM \"public\".subscriptions AS s WHERE s.plan_name = 'Pro' AND s.status = 'active' ORDER BY s.id DESC",
+        "columns": [
+          "id"
+        ],
+        "rows": [
+          [
+            4
+          ],
+          [
+            2
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 8.374
+    },
+    {
+      "id": "total_revenue",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COALESCE(SUM(p.amount), 0) AS total_revenue FROM payments p WHERE p.status = 'completed';",
+        "message": "Запрос возвращает общую сумму всех оплаченных платежей за всё время."
+      },
+      "execution": {
+        "query": "SELECT COALESCE(SUM(p.amount), 0) AS total_revenue FROM \"public\".payments AS p WHERE p.status = 'completed'",
+        "columns": [
+          "total_revenue"
+        ],
+        "rows": [
+          [
+            "3970.00"
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.276
+    },
+    {
+      "id": "october_revenue",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COALESCE(SUM(p.amount), 0) AS total_paid_amount FROM payments p JOIN subscriptions s ON p.subscription_id = s.id WHERE p.status = 'completed' AND EXTRACT(MONTH FROM p.paid_at) = 10 AND EXTRACT(YEAR FROM p.paid_at) = 2026;",
+        "message": "Запрос возвращает общую сумму оплаченных платежей за октябрь 2026 года в рублях."
+      },
+      "execution": {
+        "query": "SELECT COALESCE(SUM(p.amount), 0) AS total_paid_amount FROM \"public\".payments AS p JOIN \"public\".subscriptions AS s ON p.subscription_id = s.id WHERE p.status = 'completed' AND EXTRACT(MONTH FROM p.paid_at) = 10 AND EXTRACT(YEAR FROM p.paid_at) = 2026",
+        "columns": [
+          "total_paid_amount"
+        ],
+        "rows": [
+          [
+            "2980.00"
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 4.292
+    },
+    {
+      "id": "october_paid_by_client",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT \n    c.id AS client_id,\n    COALESCE(SUM(p.amount), 0) AS total_completed_payments\nFROM clients c\nLEFT JOIN payments p ON c.id = p.client_id AND p.status = 'completed'\nWHERE p.paid_at >= '2026-10-01'::timestamp - INTERVAL '1 second'\n  AND p.paid_at < '2026-10-31 23:59:59'::timestamp\nGROUP BY c.id\nORDER BY c.id;",
+        "message": "Запрос возвращает список всех клиентов с суммой завершённых платежей за октябрь 2026 года. Клиенты без оплат включены со значением 0."
+      },
+      "status": "sql_error",
+      "error": "column p.client_id does not exist\nLINE 1: ...s AS c LEFT JOIN \"public\".payments AS p ON c.id = p.client_i...\n                                                             ^",
+      "elapsed_seconds": 6.544
+    },
+    {
+      "id": "payments_by_status",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT status, COUNT(*) AS count_records FROM payments GROUP BY status ORDER BY status;",
+        "message": "Запрос возвращает список всех уникальных статусов платежей из таблицы payments и количество записей для каждого статуса."
+      },
+      "execution": {
+        "query": "SELECT status, COUNT(*) AS count_records FROM \"public\".payments GROUP BY status ORDER BY status",
+        "columns": [
+          "status",
+          "count_records"
+        ],
+        "rows": [
+          [
+            "completed",
+            3
+          ],
+          [
+            "failed",
+            1
+          ],
+          [
+            "pending",
+            1
+          ],
+          [
+            "refunded",
+            1
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.318
+    },
+    {
+      "id": "clients_without_paid_payments",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT DISTINCT c.id FROM clients AS c LEFT JOIN subscriptions AS s ON c.id = s.client_id LEFT JOIN payments AS p ON s.id = p.subscription_id WHERE p.status != 'completed' OR p.id IS NULL;",
+        "message": "Запрос возвращает идентификаторы клиентов, у которых нет завершенных платежей по любой из их подписок."
+      },
+      "execution": {
+        "query": "SELECT DISTINCT c.id FROM \"public\".clients AS c LEFT JOIN \"public\".subscriptions AS s ON c.id = s.client_id LEFT JOIN \"public\".payments AS p ON s.id = p.subscription_id WHERE p.status <> 'completed' OR p.id IS NULL",
+        "columns": [
+          "id"
+        ],
+        "rows": [
+          [
+            2
+          ],
+          [
+            3
+          ],
+          [
+            1
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "wrong_rows",
+      "elapsed_seconds": 3.586
+    },
+    {
+      "id": "active_subscriptions_by_plan",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT s.plan_name, COUNT(*) AS active_subscriptions_count FROM subscriptions s WHERE s.status = 'active' GROUP BY s.plan_name ORDER BY active_subscriptions_count DESC;",
+        "message": "Запрос возвращает список активных тарифов и количество действующих подписок на каждом из них."
+      },
+      "execution": {
+        "query": "SELECT s.plan_name, COUNT(*) AS active_subscriptions_count FROM \"public\".subscriptions AS s WHERE s.status = 'active' GROUP BY s.plan_name ORDER BY active_subscriptions_count DESC",
+        "columns": [
+          "plan_name",
+          "active_subscriptions_count"
+        ],
+        "rows": [
+          [
+            "Pro",
+            2
+          ],
+          [
+            "Basic",
+            1
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.817
+    },
+    {
+      "id": "november_completed_payment_ids",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT p.id FROM payments p WHERE p.status = 'completed' AND EXTRACT(MONTH FROM p.paid_at) = 11 AND EXTRACT(YEAR FROM p.paid_at) = 2026;",
+        "message": "Запрос возвращает идентификаторы завершённых платежей, выпавших в ноябре 2026 года."
+      },
+      "execution": {
+        "query": "SELECT p.id FROM \"public\".payments AS p WHERE p.status = 'completed' AND EXTRACT(MONTH FROM p.paid_at) = 11 AND EXTRACT(YEAR FROM p.paid_at) = 2026",
+        "columns": [
+          "id"
+        ],
+        "rows": [],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 3.476
+    },
+    {
+      "id": "ambiguous_period",
+      "expected_action": "clarify",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COUNT(*) AS active_subscriptions_count FROM subscriptions WHERE status = 'active' AND started_on >= '2023-10-01'::date AND started_on < '2023-11-01'::date;",
+        "message": "Запрос возвращает количество активных подписок, начатых в октябре 2023 года."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 3.656
+    },
+    {
+      "id": "ambiguous_activity",
+      "expected_action": "clarify",
+      "actual_action": "clarify",
+      "decision": {
+        "action": "clarify",
+        "sql": null,
+        "message": "Под «активностью» вы подразумевается количество активных подписок или сумма фактических оплат? Если нужно показать и то, и другое, укажите оба показателя. Также уточните: требуется ли разбить данные по клиентам или просто общий список с датами?"
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.765
+    },
+    {
+      "id": "ambiguous_ranking",
+      "expected_action": "clarify",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT c.full_name, COUNT(*) AS num_payments, SUM(p.amount) AS total_paid FROM clients c JOIN payments p ON c.id = p.client_id WHERE p.status = 'completed' GROUP BY c.full_name ORDER BY total_paid DESC LIMIT 3;",
+        "message": "Запрос возвращает имена трех клиентов с наибольшей суммой оплаченных платежей."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 3.373
+    },
+    {
+      "id": "missing_payment_method",
+      "expected_action": "unsupported",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COUNT(*) AS total_paid_subscriptions FROM payments WHERE status = 'completed';",
+        "message": "Запрос возвращает общее количество оплаченных платежей (подписок) за весь период."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 2.139
+    },
+    {
+      "id": "missing_refund_date",
+      "expected_action": "unsupported",
+      "actual_action": "unsupported",
+      "decision": {
+        "action": "unsupported",
+        "sql": null,
+        "message": "В базе данных нет информации о датах и суммах возвратов. Статус 'refunded' применяется к платежу как единовременное событие без привязки к конкретной дате возврата или суммы вычитаемой части. Для ответа на вопрос о сумме вернутой выручки за ноябрь 2026 года требуется дополнительная таблица с историей статусов платежей и датами операций."
+      },
+      "status": "correct",
+      "elapsed_seconds": 3.915
+    },
+    {
+      "id": "missing_client_city",
+      "expected_action": "unsupported",
+      "actual_action": "unsupported",
+      "decision": {
+        "action": "unsupported",
+        "sql": null,
+        "message": "В базе данных нет информации о месте проживания клиентов. Таблица 'clients' содержит только идентификаторы, имена и email, но не указывает город или адрес проживания."
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.016
+    }
+  ]
+}

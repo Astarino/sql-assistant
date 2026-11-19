@@ -1,0 +1,88 @@
+[
+  {
+    "id": "active_clients",
+    "question": "Сколько разных клиентов имеют хотя бы одну действующую подписку?",
+    "action": "sql",
+    "rows": [[2]]
+  },
+  {
+    "id": "active_pro_ids",
+    "question": "Выведи только идентификаторы действующих подписок Pro в порядке убывания.",
+    "action": "sql",
+    "rows": [[4], [2]],
+    "ordered": true
+  },
+  {
+    "id": "total_revenue",
+    "question": "Какова выручка от подписок за всё время в рублях? Верни только сумму.",
+    "action": "sql",
+    "rows": [[3970]]
+  },
+  {
+    "id": "october_revenue",
+    "question": "Какая сумма оплат за подписки за октябрь 2026 года? Верни только сумму в рублях.",
+    "action": "sql",
+    "rows": [[2980]]
+  },
+  {
+    "id": "october_paid_by_client",
+    "question": "Для каждого клиента покажи его идентификатор и сумму завершённых оплат подписок за октябрь 2026 года. Включи и тех, кто ничего не заплатил, с суммой 0.",
+    "action": "sql",
+    "rows": [[1, 990], [2, 1990], [3, 0]]
+  },
+  {
+    "id": "payments_by_status",
+    "question": "Покажи каждый статус платежа и число записей с этим статусом.",
+    "action": "sql",
+    "rows": [["completed", 3], ["failed", 1], ["pending", 1], ["refunded", 1]]
+  },
+  {
+    "id": "clients_without_paid_payments",
+    "question": "Верни только идентификаторы клиентов, у которых ни по одной подписке нет платежа со статусом completed.",
+    "action": "sql",
+    "rows": [[3]]
+  },
+  {
+    "id": "active_subscriptions_by_plan",
+    "question": "Покажи название тарифа и число действующих подписок на нём.",
+    "action": "sql",
+    "rows": [["Basic", 1], ["Pro", 2]]
+  },
+  {
+    "id": "november_completed_payment_ids",
+    "question": "Покажи только идентификаторы завершённых платежей за ноябрь 2026 года.",
+    "action": "sql",
+    "rows": [],
+    "column_count": 1
+  },
+  {
+    "id": "ambiguous_period",
+    "question": "Сколько действующих подписок оформили в октябре?",
+    "action": "clarify"
+  },
+  {
+    "id": "ambiguous_activity",
+    "question": "Покажи активность клиентов за октябрь 2026 года.",
+    "action": "clarify"
+  },
+  {
+    "id": "ambiguous_ranking",
+    "question": "Кто наши три лучших клиента?",
+    "action": "clarify"
+  },
+  {
+    "id": "missing_payment_method",
+    "question": "Сколько подписок за всё время оплатили банковской картой?",
+    "action": "unsupported"
+  },
+  {
+    "id": "missing_refund_date",
+    "question": "Какую сумму фактически вернули клиентам в ноябре 2026 года по дате возврата?",
+    "action": "unsupported"
+  },
+  {
+    "id": "missing_client_city",
+    "question": "Сколько клиентов проживает в Казани?",
+    "action": "unsupported"
+  }
+]
