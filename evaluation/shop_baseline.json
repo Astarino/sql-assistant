@@ -1,0 +1,169 @@
+{
+  "model": "qwen3.5:4b",
+  "suite": "shop",
+  "summary": {
+    "total": 10,
+    "action_correct": 6,
+    "correct": 2,
+    "by_expected_action": {
+      "sql": {
+        "total": 6,
+        "action_correct": 5,
+        "correct": 1
+      },
+      "clarify": {
+        "total": 2,
+        "action_correct": 0,
+        "correct": 0
+      },
+      "unsupported": {
+        "total": 2,
+        "action_correct": 1,
+        "correct": 1
+      }
+    },
+    "by_status": {
+      "sql_error": 4,
+      "correct": 2,
+      "wrong_action": 4
+    }
+  },
+  "outcomes": [
+    {
+      "id": "shop_top_items",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT p.id AS product_id, SUM(oi.quantity) AS total_quantity FROM order_items oi JOIN products p ON oi.product_id = p.id WHERE EXTRACT(MONTH FROM oi.ordered_on) = 10 AND EXTRACT(YEAR FROM oi.ordered_on) = 2026 AND o.status = 'completed' GROUP BY p.id, SUM(oi.quantity) ORDER BY total_quantity DESC LIMIT 2;",
+        "message": "Запрос возвращает ID двух товаров с наибольшим общим количеством продаж в октябре 2026 года по завершённым заказам."
+      },
+      "status": "sql_error",
+      "error": "column oi.ordered_on does not exist\nLINE 1: ... ON oi.product_id = p.id WHERE EXTRACT(MONTH FROM oi.ordered...\n                                                             ^",
+      "elapsed_seconds": 10.988
+    },
+    {
+      "id": "shop_october_revenue",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_revenue FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026;",
+        "message": "Запрос вычисляет общую сумму покупок по завершённым заказам за октябрь 2026 года, суммируя количество единиц и цену единицы товара для каждой позиции заказа."
+      },
+      "execution": {
+        "query": "SELECT COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_revenue FROM \"shop_eval\".order_items AS oi JOIN \"shop_eval\".orders AS o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026",
+        "columns": [
+          "total_revenue"
+        ],
+        "rows": [
+          [
+            "3950.00"
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 8.218
+    },
+    {
+      "id": "shop_unsold_items",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT DISTINCT p.id AS product_id\nFROM shop_eval.products p\nINNER JOIN shop_eval.order_items oi ON p.id = oi.product_id\nINNER JOIN shop_eval.orders o ON oi.order_id = o.id\nWHERE o.status = 'completed'\n  AND EXTRACT(MONTH FROM o.ordered_on) = 10\n  AND EXTRACT(YEAR FROM o.ordered_on) = 2026\nHAVING COUNT(*) = 0;",
+        "message": "Запрос возвращает список ID товаров, которые не были добавлены в завершённые заказы октября 2026 года."
+      },
+      "status": "sql_error",
+      "error": "column \"p.id\" must appear in the GROUP BY clause or be used in an aggregate function\nLINE 1: EXPLAIN (FORMAT JSON) SELECT DISTINCT p.id AS product_id FRO...\n                                              ^",
+      "elapsed_seconds": 5.14
+    },
+    {
+      "id": "shop_distinct_products_sold",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COUNT(DISTINCT p.id) AS unique_products_sold FROM shop_eval.products p JOIN shop_eval.order_items oi ON p.id = oi.product_id WHERE DATE(oi.unit_price::numeric) >= '2026-10-01' AND DATE(oi.unit_price::numeric) < '2026-11-01' AND o.status = 'completed'",
+        "message": "Запрос возвращает количество уникальных товаров, которые были проданы в октябре 2026 года по завершённым заказам."
+      },
+      "status": "sql_error",
+      "error": "Функция DATE не входит в разрешённый список.",
+      "elapsed_seconds": 4.531
+    },
+    {
+      "id": "shop_orders_by_status",
+      "expected_action": "sql",
+      "actual_action": "clarify",
+      "decision": {
+        "action": "clarify",
+        "sql": null,
+        "message": "Пожалуйста, уточните: какой именно статус (completed, cancelled или pending) вы хотите получить? В базе данных только три возможных значения для поля status: 'completed' — завершён, 'cancelled' — отменён, 'pending' — в ожидании."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 2.794
+    },
+    {
+      "id": "shop_units_by_category",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT p.category, COUNT(*) AS total_sold FROM shop_eval.products p LEFT JOIN shop_eval.order_items oi ON p.id = oi.product_id WHERE EXTRACT(MONTH FROM oi.ordered_on) = 10 AND EXTRACT(YEAR FROM oi.ordered_on) = 2026 GROUP BY p.category ORDER BY p.category;",
+        "message": "Запрос возвращает список категорий товаров и общее количество проданных единиц за октябрь 2026 года, включая категории без продаж (с нулевым значением)."
+      },
+      "status": "sql_error",
+      "error": "column oi.ordered_on does not exist\nLINE 1: ... ON p.id = oi.product_id WHERE EXTRACT(MONTH FROM oi.ordered...\n                                                             ^",
+      "elapsed_seconds": 4.585
+    },
+    {
+      "id": "shop_ambiguous_month",
+      "expected_action": "clarify",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT SUM(oi.quantity * oi.unit_price) AS total_revenue FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 11;",
+        "message": "Запрос вычисляет общую сумму выручки по завершённым заказам за ноябрь месяц, суммируя количество товаров и их цену в каждой позиции заказа."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 3.886
+    },
+    {
+      "id": "shop_ambiguous_threshold",
+      "expected_action": "clarify",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT o.id, o.ordered_on, o.status, oi.quantity, oi.unit_price, (oi.quantity * oi.unit_price) AS total_amount FROM shop_eval.orders o JOIN shop_eval.order_items oi ON o.id = oi.order_id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 ORDER BY total_amount DESC;",
+        "message": "Запрос возвращает список крупных завершённых заказов за октябрь 2026 года с общей суммой по каждой позиции."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 4.987
+    },
+    {
+      "id": "shop_missing_city",
+      "expected_action": "unsupported",
+      "actual_action": "unsupported",
+      "decision": {
+        "action": "unsupported",
+        "sql": null,
+        "message": "В доступной схеме нет информации о местоположении доставки (например, столбцы с адресом или регионом) и нет данных за октябрь 2026 года. Таблица 'orders' содержит только статус заказа и дату оформления, но не указывает место доставки."
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.857
+    },
+    {
+      "id": "shop_missing_cost",
+      "expected_action": "unsupported",
+      "actual_action": "clarify",
+      "decision": {
+        "action": "clarify",
+        "sql": null,
+        "message": "В доступной схеме нет таблиц с информацией о себестоимости товаров или расходах на производство. Для расчета прибыли (выручка минус себестоимость) требуется таблица, содержащая данные о стоимости закупки или производстве каждого товара. Уточните, пожалуйста, есть ли в базе данных дополнительные таблицы для учета затрат, или вы имеете в виду расчет только по выручке?"
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 3.791
+    }
+  ]
+}

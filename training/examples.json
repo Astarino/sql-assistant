@@ -1,0 +1,360 @@
+[
+  {
+    "id": "payments_count_for_client",
+    "split": "train",
+    "questions": [
+      "Сколько завершённых платежей у клиента с ID 2?",
+      "Посчитай успешные платежи клиента 2 по всем его подпискам.",
+      "Сколько раз клиент номер 2 успешно заплатил?"
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT COUNT(*) FROM public.subscriptions s JOIN public.payments p ON p.subscription_id = s.id WHERE s.client_id = 2 AND p.status = 'completed'",
+      "message": "Число завершённых платежей клиента 2 по всем подпискам."
+    }
+  },
+  {
+    "id": "distinct_clients_with_receipts",
+    "split": "train",
+    "questions": [
+      "Сколько разных клиентов совершили завершённую оплату в сентябре 2026 года?",
+      "Посчитай уникальных плательщиков за сентябрь 2026 года, только завершённые оплаты.",
+      "От скольких разных клиентов поступили завершённые платежи за сентябрь 2026 года?"
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT COUNT(DISTINCT s.client_id) FROM public.subscriptions s JOIN public.payments p ON p.subscription_id = s.id WHERE p.status = 'completed' AND p.paid_at >= '2026-09-01 00:00:00+03'::timestamptz AND p.paid_at < '2026-10-01 00:00:00+03'::timestamptz",
+      "message": "Число уникальных клиентов с завершёнными платежами за сентябрь 2026 года."
+    }
+  },
+  {
+    "id": "payments_by_plan",
+    "split": "train",
+    "questions": [
+      "Покажи тариф и сумму завершённых платежей по каждому тарифу, где такие платежи были.",
+      "Разбей сумму оплаченных платежей по тарифам. Тарифы без оплат пропусти.",
+      "Сколько заплатили по каждому тарифу с успешными оплатами?"
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT s.plan_name, SUM(p.amount) AS paid FROM public.subscriptions s JOIN public.payments p ON p.subscription_id = s.id WHERE p.status = 'completed' GROUP BY s.plan_name",
+      "message": "Сумма завершённых платежей по каждому тарифу с оплатами."
+    }
+  },
+  {
+    "id": "subscriptions_without_payments",
+    "split": "train",
+    "questions": [
+      "Какие подписки ни разу не пытались оплатить? Нужны только их ID.",
+      "Покажи ID подписок, для которых вообще нет записей платежей.",
+      "Список идентификаторов подписок без каких-либо платежей, включая попытки."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT s.id FROM public.subscriptions s WHERE NOT EXISTS (SELECT 1 FROM public.payments p WHERE p.subscription_id = s.id)",
+      "message": "Идентификаторы подписок без записей о платежах."
+    }
+  },
+  {
+    "id": "subscriptions_without_failed",
+    "split": "train",
+    "questions": [
+      "По каким подпискам не было ни одной неудачной попытки оплаты? Покажи только ID.",
+      "Нужны идентификаторы подписок без платежей со статусом failed.",
+      "Выведи ID подписок, для которых совсем нет неудачных платежей."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT s.id FROM public.subscriptions s WHERE NOT EXISTS (SELECT 1 FROM public.payments p WHERE p.subscription_id = s.id AND p.status = 'failed')",
+      "message": "Идентификаторы подписок без неудачных попыток оплаты."
+    }
+  },
+  {
+    "id": "clients_without_active_subscriptions",
+    "split": "train",
+    "questions": [
+      "У каких клиентов совсем нет действующей подписки? Выведи их ID.",
+      "Верни идентификаторы клиентов, у которых нет подписок в статусе active.",
+      "Найди клиентов без единой активной подписки. Только их ID."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT c.id FROM public.clients c WHERE NOT EXISTS (SELECT 1 FROM public.subscriptions s WHERE s.client_id = c.id AND s.status = 'active')",
+      "message": "Идентификаторы клиентов без действующих подписок."
+    }
+  },
+  {
+    "id": "cancelled_subscriptions_by_client",
+    "split": "train",
+    "questions": [
+      "Покажи ID каждого клиента и число его отменённых подписок, включая ноль.",
+      "Сколько отменённых подписок у каждого клиента? Колонки: ID клиента и количество.",
+      "Укажи по каждому ID клиента количество подписок в статусе cancelled, даже если их нет."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT c.id, COUNT(s.id) AS cancelled_count FROM public.clients c LEFT JOIN public.subscriptions s ON s.client_id = c.id AND s.status = 'cancelled' GROUP BY c.id",
+      "message": "Число отменённых подписок для каждого клиента, включая ноль."
+    }
+  },
+  {
+    "id": "refunded_originals",
+    "split": "train",
+    "questions": [
+      "Выведи идентификатор и исходную сумму полностью возвращённых платежей.",
+      "Покажи ID и сумму записей платежей, помеченных refunded.",
+      "Какие платежи полностью вернули? Нужны два столбца: ID записи и её сумма."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT p.id, p.amount FROM public.payments p WHERE p.status = 'refunded'",
+      "message": "Идентификаторы и исходные суммы платежей со статусом refunded."
+    }
+  },
+  {
+    "id": "pro_price",
+    "split": "train",
+    "questions": [
+      "Какова максимальная месячная цена действующих подписок Pro?",
+      "Верни максимальную стоимость месяца среди активных подписок тарифа Pro.",
+      "Какая самая высокая цена в месяц у действующей подписки Pro?"
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT MAX(s.monthly_price) FROM public.subscriptions s WHERE s.plan_name = 'Pro' AND s.status = 'active'",
+      "message": "Максимальная месячная цена действующей подписки Pro."
+    }
+  },
+  {
+    "id": "paid_on_september_first",
+    "split": "train",
+    "questions": [
+      "Какие платежи завершились 1 сентября 2026 года по московскому времени? Покажи их ID и сумму.",
+      "Выведи ID и суммы успешных оплат за 1 сентября 2026 по Москве.",
+      "Покажи ID и сумму платежей со статусом completed за 01.09.2026 по московскому времени."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT p.id, p.amount FROM public.payments p WHERE p.status = 'completed' AND p.paid_at >= '2026-09-01 00:00:00+03'::timestamptz AND p.paid_at < '2026-09-02 00:00:00+03'::timestamptz",
+      "message": "Идентификаторы и суммы завершённых платежей за 1 сентября 2026 года по Москве."
+    }
+  },
+  {
+    "id": "plan_clients_above_price",
+    "split": "train",
+    "questions": [
+      "Покажи ID клиентов, у которых есть подписка дороже 1500 рублей в месяц. Без повторов.",
+      "У каких клиентов месячная цена хотя бы одной подписки превышает 1500 рублей? Только уникальные ID.",
+      "Верни разные ID клиентов с подпиской за более чем 1500 рублей в месяц."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT DISTINCT s.client_id FROM public.subscriptions s WHERE s.monthly_price > 1500",
+      "message": "Уникальные идентификаторы клиентов с подпиской дороже 1500 рублей в месяц."
+    }
+  },
+  {
+    "id": "clarify_client",
+    "split": "train",
+    "questions": [
+      "Сколько он заплатил за подписки?",
+      "Покажи сумму оплат этого клиента.",
+      "Сколько внёс за подписку тот покупатель?"
+    ],
+    "answer": {
+      "action": "clarify",
+      "sql": null,
+      "message": "Какого клиента нужно проверить? Укажи его ID или имя."
+    }
+  },
+  {
+    "id": "clarify_month_year",
+    "split": "train",
+    "questions": [
+      "Посчитай сумму завершённых оплат за сентябрь.",
+      "Какую выручку получили в сентябре?",
+      "Покажи сумму оплат за подписки в сентябре."
+    ],
+    "answer": {
+      "action": "clarify",
+      "sql": null,
+      "message": "За сентябрь какого года посчитать сумму?"
+    }
+  },
+  {
+    "id": "clarify_threshold",
+    "split": "train",
+    "questions": [
+      "Найди клиентов с большими платежами.",
+      "Покажи дорогие подписки.",
+      "Отбери платежи, которые выше нужной суммы."
+    ],
+    "answer": {
+      "action": "clarify",
+      "sql": null,
+      "message": "Какой порог суммы использовать?"
+    }
+  },
+  {
+    "id": "clarify_price_or_payment",
+    "split": "train",
+    "questions": [
+      "Сколько стоят подписки в сумме?",
+      "Назови общую стоимость подписок.",
+      "Покажи, сколько денег получается по всем подпискам."
+    ],
+    "answer": {
+      "action": "clarify",
+      "sql": null,
+      "message": "Нужна сумма месячных цен подписок или сумма фактических оплат?"
+    }
+  },
+  {
+    "id": "unsupported_signup_time",
+    "split": "train",
+    "questions": [
+      "В какое время суток оформили каждую подписку?",
+      "Выведи часы и минуты запуска подписок.",
+      "Покажи точное время оформления каждого абонемента."
+    ],
+    "answer": {
+      "action": "unsupported",
+      "sql": null,
+      "message": "В базе хранится дата начала подписки без времени суток."
+    }
+  },
+  {
+    "id": "unsupported_payment_fee",
+    "split": "train",
+    "questions": [
+      "Какую комиссию банк удержал по каждому платежу?",
+      "Покажи комиссии за обработку оплат.",
+      "Сколько платёжный провайдер удержал с завершённых платежей?"
+    ],
+    "answer": {
+      "action": "unsupported",
+      "sql": null,
+      "message": "В базе есть суммы платежей, но нет данных о комиссиях банка или платёжного провайдера."
+    }
+  },
+  {
+    "id": "unsupported_client_age",
+    "split": "train",
+    "questions": [
+      "Посчитай средний возраст клиентов.",
+      "Покажи даты рождения покупателей подписок.",
+      "Найди клиентов старше 30 лет."
+    ],
+    "answer": {
+      "action": "unsupported",
+      "sql": null,
+      "message": "В данных клиентов нет возраста или даты рождения."
+    }
+  },
+  {
+    "id": "unsupported_previous_status",
+    "split": "train",
+    "questions": [
+      "Каким был статус каждого платежа до его текущего статуса?",
+      "Покажи предыдущие статусы платежей.",
+      "Как менялся статус платежа с ID 1?"
+    ],
+    "answer": {
+      "action": "unsupported",
+      "sql": null,
+      "message": "База хранит текущий статус платежа. Для ответа нужна история изменений."
+    }
+  },
+  {
+    "id": "unsupported_subscription_cancel_date",
+    "split": "train",
+    "questions": [
+      "Когда отменили каждую отменённую подписку?",
+      "Какая дата отмены у подписки 3?",
+      "Выведи даты отмены подписок со статусом cancelled."
+    ],
+    "answer": {
+      "action": "unsupported",
+      "sql": null,
+      "message": "В базе есть статус и дата начала подписки, но отсутствует дата отмены."
+    }
+  },
+  {
+    "id": "weekly_subscription_starts",
+    "split": "valid",
+    "questions": [
+      "Выведи ID подписок, начавшихся с 1 по 7 ноября 2026 года включительно.",
+      "Какие подписки оформили в первую неделю ноября 2026 года? Только ID."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT s.id FROM public.subscriptions s WHERE s.started_on >= DATE '2026-11-01' AND s.started_on < DATE '2026-11-08'",
+      "message": "Идентификаторы подписок, начавшихся с 1 по 7 ноября 2026 года."
+    }
+  },
+  {
+    "id": "max_completed_amount_by_client",
+    "split": "valid",
+    "questions": [
+      "Для клиентов с завершёнными платежами покажи ID и размер их крупнейшего такого платежа.",
+      "Нужны ID плательщиков и максимальная сумма успешной оплаты для каждого."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT s.client_id, MAX(p.amount) AS largest_payment FROM public.subscriptions s JOIN public.payments p ON p.subscription_id = s.id WHERE p.status = 'completed' GROUP BY s.client_id",
+      "message": "Крупнейший завершённый платёж по каждому клиенту, у которого такие платежи есть."
+    }
+  },
+  {
+    "id": "plans_without_subscriptions_started",
+    "split": "valid",
+    "questions": [
+      "Покажи названия существующих тарифов, на которых не оформили ни одной подписки в ноябре 2026 года.",
+      "Какие тарифы не получили ни одной новой подписки за ноябрь 2026? Только названия."
+    ],
+    "answer": {
+      "action": "sql",
+      "sql": "SELECT DISTINCT s.plan_name FROM public.subscriptions s WHERE NOT EXISTS (SELECT 1 FROM public.subscriptions n WHERE n.plan_name = s.plan_name AND n.started_on >= DATE '2026-11-01' AND n.started_on < DATE '2026-12-01')",
+      "message": "Тарифы, на которых в ноябре 2026 года не началась ни одна подписка."
+    }
+  },
+  {
+    "id": "clarify_grouping",
+    "split": "valid",
+    "questions": [
+      "Разбей завершённые оплаты за октябрь 2026 по группам.",
+      "Покажи группировку успешных платежей за октябрь 2026."
+    ],
+    "answer": {
+      "action": "clarify",
+      "sql": null,
+      "message": "По чему сгруппировать платежи: по клиентам, тарифам или датам?"
+    }
+  },
+  {
+    "id": "clarify_filter",
+    "split": "valid",
+    "questions": [
+      "Сколько завершённых платежей по нужному тарифу?",
+      "Посчитай успешные платежи выбранного тарифа."
+    ],
+    "answer": {
+      "action": "clarify",
+      "sql": null,
+      "message": "Какой тариф взять для подсчёта?"
+    }
+  },
+  {
+    "id": "unsupported_usage",
+    "split": "valid",
+    "questions": [
+      "Сколько раз каждый клиент вошёл в сервис в ноябре 2026 года?",
+      "Покажи число входов в аккаунт по клиентам за ноябрь 2026."
+    ],
+    "answer": {
+      "action": "unsupported",
+      "sql": null,
+      "message": "В базе есть подписки и платежи, но нет событий входа в аккаунт."
+    }
+  }
+]
