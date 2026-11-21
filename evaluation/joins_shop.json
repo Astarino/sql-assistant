@@ -1,0 +1,203 @@
+{
+  "model": "qwen3.5:4b",
+  "backend": "ollama",
+  "adapter": null,
+  "suite": "shop",
+  "summary": {
+    "total": 10,
+    "action_correct": 6,
+    "correct": 3,
+    "by_expected_action": {
+      "sql": {
+        "total": 6,
+        "action_correct": 5,
+        "correct": 2
+      },
+      "clarify": {
+        "total": 2,
+        "action_correct": 0,
+        "correct": 0
+      },
+      "unsupported": {
+        "total": 2,
+        "action_correct": 1,
+        "correct": 1
+      }
+    },
+    "by_status": {
+      "wrong_rows": 2,
+      "correct": 3,
+      "wrong_action": 4,
+      "sql_error": 1
+    }
+  },
+  "outcomes": [
+    {
+      "id": "shop_top_items",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT p.id AS product_id, SUM(oi.quantity) AS total_quantity FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 GROUP BY p.id ORDER BY total_quantity DESC LIMIT 1;",
+        "message": "Запрос возвращает ID товара и общее количество проданных единиц для самого популярного товара в октябре 2026 года среди завершённых заказов."
+      },
+      "execution": {
+        "query": "SELECT p.id AS product_id, SUM(oi.quantity) AS total_quantity FROM \"shop_eval\".order_items AS oi JOIN \"shop_eval\".orders AS o ON oi.order_id = o.id JOIN \"shop_eval\".products AS p ON oi.product_id = p.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 GROUP BY p.id ORDER BY total_quantity DESC LIMIT 1",
+        "columns": [
+          "product_id",
+          "total_quantity"
+        ],
+        "rows": [
+          [
+            1,
+            4
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "wrong_rows",
+      "elapsed_seconds": 11.476
+    },
+    {
+      "id": "shop_october_revenue",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_revenue FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026;",
+        "message": "Запрос вычисляет общую сумму покупок по завершённым заказам за октябрь 2026 года, объединяя данные из таблиц order_items и orders."
+      },
+      "execution": {
+        "query": "SELECT COALESCE(SUM(oi.quantity * oi.unit_price), 0) AS total_revenue FROM \"shop_eval\".order_items AS oi JOIN \"shop_eval\".orders AS o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026",
+        "columns": [
+          "total_revenue"
+        ],
+        "rows": [
+          [
+            "3950.00"
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 8.181
+    },
+    {
+      "id": "shop_unsold_items",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT DISTINCT p.id AS product_id\nFROM products p\nLEFT JOIN order_items oi ON p.id = oi.product_id\nWHERE oi.order_id IS NULL\n  AND EXISTS (\n    SELECT 1 \n    FROM orders o\n    WHERE o.id = oi.order_id\n      AND o.status = 'completed'\n      AND EXTRACT(MONTH FROM o.ordered_on) = 10\n        AND EXTRACT(YEAR FROM o.ordered_on) = 2026\n  );",
+        "message": "Запрос возвращает список ID товаров, которые не были добавлены в ни одну завершенную позицию заказа октября 2026 года."
+      },
+      "execution": {
+        "query": "SELECT DISTINCT p.id AS product_id FROM \"shop_eval\".products AS p LEFT JOIN \"shop_eval\".order_items AS oi ON p.id = oi.product_id WHERE oi.order_id IS NULL AND EXISTS(SELECT 1 FROM \"shop_eval\".orders AS o WHERE o.id = oi.order_id AND o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026)",
+        "columns": [
+          "product_id"
+        ],
+        "rows": [],
+        "truncated": false
+      },
+      "status": "wrong_rows",
+      "elapsed_seconds": 5.559
+    },
+    {
+      "id": "shop_distinct_products_sold",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COUNT(DISTINCT p.id) AS unique_products_sold FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026;",
+        "message": "Запрос возвращает количество уникальных товаров, которые хотя бы раз были проданы в завершённых заказах за октябрь 2026 года."
+      },
+      "execution": {
+        "query": "SELECT COUNT(DISTINCT p.id) AS unique_products_sold FROM \"shop_eval\".order_items AS oi JOIN \"shop_eval\".orders AS o ON oi.order_id = o.id JOIN \"shop_eval\".products AS p ON oi.product_id = p.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026",
+        "columns": [
+          "unique_products_sold"
+        ],
+        "rows": [
+          [
+            3
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 4.57
+    },
+    {
+      "id": "shop_orders_by_status",
+      "expected_action": "sql",
+      "actual_action": "clarify",
+      "decision": {
+        "action": "clarify",
+        "sql": null,
+        "message": "Пожалуйста, уточните: какой именно статус (completed, cancelled или pending) вы хотите получить? В базе данных для каждого статуса есть свои условия по выручке и продажам. Также подтвердите, что октябрь 2026 года — это будущий период, и данные о нем еще не загружены в таблицу orders."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 3.268
+    },
+    {
+      "id": "shop_units_by_category",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT p.category, COUNT(*) AS total_quantity_sold FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 GROUP BY p.category HAVING total_quantity_sold > 0 UNION ALL SELECT p.category, 0 AS total_quantity_sold FROM products p WHERE p.category NOT IN (SELECT DISTINCT p.category FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026)",
+        "message": "Запрос возвращает список категорий товаров и количество проданных единиц за октябрь 2026 года, включая категории без продаж с нулевым значением."
+      },
+      "status": "sql_error",
+      "error": "Разрешён один SELECT, включая нерекурсивный WITH ... SELECT.",
+      "elapsed_seconds": 8.243
+    },
+    {
+      "id": "shop_ambiguous_month",
+      "expected_action": "clarify",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT SUM(oi.quantity * oi.unit_price) AS total_revenue FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 11;",
+        "message": "Запрос вычисляет общую сумму продаж (выручку) по завершённым заказам за ноябрь месяц, суммируя количество товара и его цену в каждой позиции заказа."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 3.832
+    },
+    {
+      "id": "shop_ambiguous_threshold",
+      "expected_action": "clarify",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT o.id, o.ordered_on, o.status, oi.quantity, oi.unit_price, (oi.quantity * oi.unit_price) AS total_amount FROM shop_eval.orders o JOIN shop_eval.order_items oi ON o.id = oi.order_id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 ORDER BY total_amount DESC;",
+        "message": "Запрос возвращает список крупных завершённых заказов за октябрь 2026 года с общей суммой по каждой позиции."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 4.923
+    },
+    {
+      "id": "shop_missing_city",
+      "expected_action": "unsupported",
+      "actual_action": "unsupported",
+      "decision": {
+        "action": "unsupported",
+        "sql": null,
+        "message": "В доступной схеме нет информации о местоположении доставки (например, столбцы с адресом или регионом доставки) и нет данных за октябрь 2026 года. Таблица `orders` содержит только дату оформления заказа (`ordered_on`) и статус, но не указывает место доставки."
+      },
+      "status": "correct",
+      "elapsed_seconds": 2.935
+    },
+    {
+      "id": "shop_missing_cost",
+      "expected_action": "unsupported",
+      "actual_action": "clarify",
+      "decision": {
+        "action": "clarify",
+        "sql": null,
+        "message": "В базе данных нет информации о себестоимости товаров (стоимости закупки или производства). В таблице `products` есть только название и категория, а в таблице `order_items` записана только цена продажи (`unit_price`). Для расчета прибыли необходимо знать цену покупки товара. Уточните, пожалуйста: как вы хотите рассчитать себестоимость? Использовать ли среднюю цену по каталогу (которая отсутствует), или у вас есть дополнительная таблица с данными о закупках?"
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 4.483
+    }
+  ]
+}

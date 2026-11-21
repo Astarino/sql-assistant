@@ -17,6 +17,7 @@ ACTIONS = ("sql", "clarify", "unsupported")
 SUITES = {
     "subscriptions": ("public", "cases.json", ROOT / "domain_glossary.json"),
     "shop": ("shop_eval", "shop_cases.json", None),
+    "shop_joins": ("shop_eval", "shop_join_cases.json", None),
 }
 
 

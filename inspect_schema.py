@@ -35,6 +35,35 @@ def read_constraints(connection: psycopg.Connection, table_id: int) -> list[dict
     return connection.execute(query, (table_id,)).fetchall()
 
 
+def read_foreign_keys(connection: psycopg.Connection, table_ids: list[int]) -> list[dict]:
+    query = """
+        SELECT
+            source.relname AS source_table,
+            target.relname AS target_table,
+            array_agg(
+                pg_catalog.quote_ident(source.relname) || '.' || pg_catalog.quote_ident(source_column.attname)
+                || ' = ' ||
+                pg_catalog.quote_ident(target.relname) || '.' || pg_catalog.quote_ident(target_column.attname)
+                ORDER BY column_pair.position
+            ) AS join_on
+        FROM pg_catalog.pg_constraint AS fk
+        JOIN pg_catalog.pg_class AS source ON source.oid = fk.conrelid
+        JOIN pg_catalog.pg_class AS target ON target.oid = fk.confrelid
+        CROSS JOIN LATERAL unnest(fk.conkey, fk.confkey) WITH ORDINALITY
+            AS column_pair(source_number, target_number, position)
+        JOIN pg_catalog.pg_attribute AS source_column
+            ON source_column.attrelid = source.oid AND source_column.attnum = column_pair.source_number
+        JOIN pg_catalog.pg_attribute AS target_column
+            ON target_column.attrelid = target.oid AND target_column.attnum = column_pair.target_number
+        WHERE fk.contype = 'f'
+            AND fk.conrelid = ANY(%s::oid[])
+            AND fk.confrelid = ANY(%s::oid[])
+        GROUP BY fk.oid, fk.conname, source.relname, target.relname
+        ORDER BY source.relname, target.relname, fk.conname
+    """
+    return connection.execute(query, (table_ids, table_ids)).fetchall()
+
+
 def read_schema(connection: psycopg.Connection, schema_name: str) -> dict:
     query = """
         SELECT
@@ -55,7 +84,12 @@ def read_schema(connection: psycopg.Connection, schema_name: str) -> dict:
     if not tables:
         raise ValueError(f"В схеме {schema_name!r} нет доступных для чтения таблиц.")
 
-    schema = {"schema": schema_name, "tables": []}
+    table_ids = [table["table_id"] for table in tables]
+    schema = {
+        "schema": schema_name,
+        "foreign_keys": read_foreign_keys(connection, table_ids),
+        "tables": [],
+    }
     for table in tables:
         schema["tables"].append(
             {

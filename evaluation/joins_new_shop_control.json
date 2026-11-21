@@ -1,0 +1,135 @@
+{
+  "model": "qwen3.5:4b",
+  "backend": "ollama",
+  "suite": "shop_joins",
+  "context_from_commit": "fe986aa",
+  "summary": {
+    "total": 5,
+    "action_correct": 4,
+    "correct": 3,
+    "by_expected_action": {
+      "sql": {
+        "total": 5,
+        "action_correct": 4,
+        "correct": 3
+      },
+      "clarify": {
+        "total": 0,
+        "action_correct": 0,
+        "correct": 0
+      },
+      "unsupported": {
+        "total": 0,
+        "action_correct": 0,
+        "correct": 0
+      }
+    },
+    "by_status": {
+      "wrong_action": 1,
+      "sql_error": 1,
+      "correct": 3
+    }
+  },
+  "outcomes": [
+    {
+      "id": "shop_november_kettles",
+      "expected_action": "sql",
+      "actual_action": "clarify",
+      "decision": {
+        "action": "clarify",
+        "sql": null,
+        "message": "В базе данных нет информации о продажах за ноябрь 2026 года (эта дата находится в будущем). Уточните, пожалуйста, нужный год или период для запроса."
+      },
+      "status": "wrong_action",
+      "elapsed_seconds": 5.57
+    },
+    {
+      "id": "shop_october_dishes_revenue",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT SUM(oi.quantity * oi.unit_price) AS total_revenue FROM order_items oi JOIN orders o ON oi.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 AND p.category = 'посуда';",
+        "message": "Запрос вычисляет общую выручку от товаров категории «посуда» за октябрь 2026 года по завершённым заказам."
+      },
+      "status": "sql_error",
+      "error": "missing FROM-clause entry for table \"p\"\nLINE 1: ...10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 AND p.category...\n                                                             ^",
+      "elapsed_seconds": 7.516
+    },
+    {
+      "id": "shop_mug_order_count",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT COUNT(DISTINCT o.id) AS count_orders FROM orders o JOIN order_items oi ON o.id = oi.order_id WHERE o.status = 'completed' AND oi.product_id IN (SELECT id FROM products WHERE name = 'Кружка');",
+        "message": "Запрос возвращает количество уникальных завершённых заказов, содержащих товар «Кружка»."
+      },
+      "execution": {
+        "query": "SELECT COUNT(DISTINCT o.id) AS count_orders FROM \"shop_eval\".orders AS o JOIN \"shop_eval\".order_items AS oi ON o.id = oi.order_id WHERE o.status = 'completed' AND oi.product_id IN (SELECT id FROM \"shop_eval\".products WHERE name = 'Кружка')",
+        "columns": [
+          "count_orders"
+        ],
+        "rows": [
+          [
+            3
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 3.32
+    },
+    {
+      "id": "shop_cancelled_categories",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT DISTINCT p.category FROM order_items oi JOIN orders o ON oi.order_id = o.id JOIN products p ON oi.product_id = p.id WHERE o.status = 'cancelled' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026;",
+        "message": "Запрос возвращает уникальные названия категорий товаров из отменённых заказов октября 2026 года."
+      },
+      "execution": {
+        "query": "SELECT DISTINCT p.category FROM \"shop_eval\".order_items AS oi JOIN \"shop_eval\".orders AS o ON oi.order_id = o.id JOIN \"shop_eval\".products AS p ON oi.product_id = p.id WHERE o.status = 'cancelled' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026",
+        "columns": [
+          "category"
+        ],
+        "rows": [
+          [
+            "аксессуары"
+          ],
+          [
+            "посуда"
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 4.092
+    },
+    {
+      "id": "shop_items_in_two_orders",
+      "expected_action": "sql",
+      "actual_action": "sql",
+      "decision": {
+        "action": "sql",
+        "sql": "SELECT DISTINCT o1.product_id\nFROM shop_eval.order_items o1\nJOIN shop_eval.orders o ON o1.order_id = o.id\nWHERE o.status = 'completed'\n  AND EXTRACT(MONTH FROM o.ordered_on) = 10\n  AND EXTRACT(YEAR FROM o.ordered_on) = 2026\nGROUP BY o1.product_id\nHAVING COUNT(*) >= 2;",
+        "message": "Запрос возвращает список ID товаров, которые были добавлены в два или более завершённых заказах, оформленных в октябре 2026 года."
+      },
+      "execution": {
+        "query": "SELECT DISTINCT o1.product_id FROM \"shop_eval\".order_items AS o1 JOIN \"shop_eval\".orders AS o ON o1.order_id = o.id WHERE o.status = 'completed' AND EXTRACT(MONTH FROM o.ordered_on) = 10 AND EXTRACT(YEAR FROM o.ordered_on) = 2026 GROUP BY o1.product_id HAVING COUNT(*) >= 2",
+        "columns": [
+          "product_id"
+        ],
+        "rows": [
+          [
+            1
+          ]
+        ],
+        "truncated": false
+      },
+      "status": "correct",
+      "elapsed_seconds": 5.828
+    }
+  ]
+}
