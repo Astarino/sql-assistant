@@ -27,3 +27,9 @@ uv run --frozen python ask.py "Сколько клиентов в базе?" --e
 | Подписки | 10/15 | [10/15](evaluation/joins_subscriptions.json) |
 | Магазин | 2/10 | [3/10](evaluation/joins_shop.json) |
 | Новые вопросы на JOIN | 3/5 | [3/5](evaluation/joins_new_shop.json) |
+
+## Как выглядит приложение
+
+![Уточнение вопроса](docs/images/clarification.png)
+![Результат запроса о выручке](docs/images/revenue.png)
+![Открытие SQL в DBeaver](docs/images/dbeaver.png)
