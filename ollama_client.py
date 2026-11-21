@@ -5,22 +5,24 @@ from urllib.request import Request, urlopen
 from decision import Decision, parse_decision
 
 
-def build_messages(question: str, context: dict) -> list[dict]:
+def build_messages(question: str, context: dict, *, sql_feedback: dict | None = None) -> list[dict]:
     if not question.strip():
         raise ValueError("Вопрос не должен быть пустым.")
 
     database_context = {key: value for key, value in context.items() if key != "instructions"}
     user_message = {"context": database_context, "question": question}
+    if sql_feedback is not None:
+        user_message["sql_feedback"] = sql_feedback
     return [
         {"role": "system", "content": context["instructions"]},
         {"role": "user", "content": json.dumps(user_message, ensure_ascii=False)},
     ]
 
 
-def ask_model(question: str, context: dict, model: str) -> Decision:
+def request_model(question: str, context: dict, model: str, *, sql_feedback: dict | None = None) -> str:
     payload = {
         "model": model,
-        "messages": build_messages(question, context),
+        "messages": build_messages(question, context, sql_feedback=sql_feedback),
         "stream": False,
         "think": False,
         "options": {"temperature": 0, "num_ctx": 8192, "num_predict": 512},
@@ -50,4 +52,8 @@ def ask_model(question: str, context: dict, model: str) -> Decision:
     content = result["message"]["content"]
     if not isinstance(content, str):
         raise ValueError("Ollama вернула ответ без текста.")
-    return parse_decision(content)
+    return content
+
+
+def ask_model(question: str, context: dict, model: str) -> Decision:
+    return parse_decision(request_model(question, context, model))

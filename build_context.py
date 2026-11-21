@@ -29,9 +29,11 @@ def build_context(
     connection: psycopg.Connection,
     schema_name: str,
     glossary_path: Path | None = None,
+    *,
+    table_names: list[str] | None = None,
 ) -> dict:
     database_name = connection.execute("SELECT current_database() AS name").fetchone()["name"]
-    database_schema = read_schema(connection, schema_name)
+    database_schema = read_schema(connection, schema_name, table_names=table_names)
     glossary = None
     if glossary_path is not None:
         glossary = load_glossary(glossary_path, database_name, database_schema)

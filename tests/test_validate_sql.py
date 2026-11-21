@@ -10,6 +10,36 @@ SCHEMA = {
 
 
 class ValidateSQLTests(unittest.TestCase):
+    def test_total_with_details_counts_all_rows(self):
+        for group in ("", " GROUP BY full_name, email"):
+            query = "SELECT COUNT(*) AS total, full_name, email FROM clients" + group
+            with self.subTest(query=query):
+                self.assertEqual(
+                    validate_sql(query, SCHEMA, total_with_details=True),
+                    'SELECT COUNT(*) OVER () AS total, full_name, email FROM "public".clients',
+                )
+
+    def test_grouped_query_preserves_counts_by_default(self):
+        query = "SELECT COUNT(*) AS total, status FROM payments GROUP BY status"
+        self.assertEqual(
+            validate_sql(query, SCHEMA),
+            'SELECT COUNT(*) AS total, status FROM "public".payments GROUP BY status',
+        )
+
+    def test_single_text_filter_keeps_the_requested_pattern_and_column(self):
+        cases = (
+            ("full_name LIKE '%ов' AND LOWER(full_name) LIKE '%м%'", ("%ов", None), "full_name LIKE '%ов'"),
+            ("full_name LIKE '%@example.com' OR email LIKE '%@example.com'", ("%@example.com", "email"), "email LIKE '%@example.com'"),
+            ("full_name LIKE '%ов' AND id > 1", ("%ов", None), "full_name LIKE '%ов' AND id > 1"),
+        )
+        for predicates, text_filter, expected in cases:
+            with self.subTest(predicates=predicates):
+                query = f"SELECT COUNT(*) FROM clients WHERE {predicates}"
+                self.assertEqual(
+                    validate_sql(query, SCHEMA, text_filter=text_filter),
+                    f'SELECT COUNT(*) FROM "public".clients WHERE {expected}',
+                )
+
     def test_supported_queries(self):
         queries = [
             "SELECT COUNT(*) FROM clients",

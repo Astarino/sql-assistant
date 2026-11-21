@@ -6,6 +6,10 @@ from psycopg import sql
 from validate_sql import validate_sql
 
 
+def reader_connection_url() -> str:
+    return os.environ.get("SQL_READER_URL", "dbname=sql_assistant_demo user=sql_assistant_reader")
+
+
 def check_reader(connection: psycopg.Connection, context: dict) -> None:
     database_name, role_name, privileged = connection.execute(
         """
@@ -37,16 +41,22 @@ def check_reader(connection: psycopg.Connection, context: dict) -> None:
             raise ValueError(f"У роли {role_name} есть права изменения таблицы {table_name}.")
 
 
-def execute_sql(query: str, context: dict, max_rows: int = 100) -> dict:
+def execute_sql(
+    query: str,
+    context: dict,
+    max_rows: int = 100,
+    *,
+    reader_url: str | None = None,
+    total_with_details: bool = False,
+    text_filter: tuple[str, str | None] | None = None,
+) -> dict:
     if not 1 <= max_rows <= 100:
         raise ValueError("Лимит результата должен быть от 1 до 100 строк.")
-    checked_query = validate_sql(query, context["database_schema"])
-    database_url = os.environ.get(
-        "SQL_READER_URL", "dbname=sql_assistant_demo user=sql_assistant_reader"
+    checked_query = validate_sql(
+        query, context["database_schema"], total_with_details=total_with_details, text_filter=text_filter,
     )
-
     with psycopg.connect(
-        database_url,
+        reader_connection_url() if reader_url is None else reader_url,
         connect_timeout=5,
         options="-c default_transaction_read_only=on -c statement_timeout=5000 -c lock_timeout=1000 -c search_path=pg_catalog",
     ) as connection:
