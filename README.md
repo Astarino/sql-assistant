@@ -42,6 +42,9 @@ uv run --frozen python ask.py "Сколько клиентов в базе?" --e
 
 ## Как выглядит приложение
 
-![Уточнение вопроса](docs/images/clarification.png)
-![Результат запроса о выручке](docs/images/revenue.png)
-![Открытие SQL в DBeaver](docs/images/dbeaver.png)
+<p>
+  <img src="docs/images/clarification.png" alt="Уточнение вопроса" width="320">
+  <img src="docs/images/revenue.png" alt="Результат запроса о выручке" width="320">
+</p>
+
+<img src="docs/images/dbeaver.png" alt="Открытие SQL в DBeaver" width="400">
