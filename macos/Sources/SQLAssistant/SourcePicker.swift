@@ -11,12 +11,15 @@ struct SourcePicker: View {
     @State private var profileDraft = ConnectionProfile()
     @State private var passwordDraft = ""
     @State private var rememberPassword = false
+    @State private var showsRoleAccess = false
 
+    let checkDefaultOnOpen: Bool
     let onApply: (DataSourceSelection) -> Void
 
-    init(current: DataSourceSelection?, onApply: @escaping (DataSourceSelection) -> Void) {
+    init(current: DataSourceSelection?, checkDefaultOnOpen: Bool = true, onApply: @escaping (DataSourceSelection) -> Void) {
         _selection = State(initialValue: current)
         _profileID = State(initialValue: current?.profileID)
+        self.checkDefaultOnOpen = checkDefaultOnOpen
         self.onApply = onApply
     }
 
@@ -66,8 +69,16 @@ struct SourcePicker: View {
         .padding(22)
         .frame(width: 450)
         .interactiveDismissDisabled(isLoading)
+        .sheet(isPresented: $showsRoleAccess) {
+            if let selection {
+                RoleAccessView(
+                    source: selection, opensReadSetup: selection.availableTables.isEmpty,
+                    onUseRole: useRole, onGranted: refreshSource
+                )
+            }
+        }
         .task {
-            if selection == nil { await selectProfile(profileID) }
+            if checkDefaultOnOpen, selection == nil { await selectProfile(profileID) }
         }
     }
 
@@ -86,11 +97,17 @@ struct SourcePicker: View {
                         Button("Изменить…") { editProfile(profile) }
                     }
                 }
+                if selection == nil, profileID == nil {
+                    Button("Проверить подключение по умолчанию") { Task { await selectProfile(nil) } }
+                }
                 if let selection {
                     Picker("База", selection: Binding(get: { selection.catalog.database }, set: { database in
                         Task { await selectDatabase(database) }
                     })) {
                         ForEach(selection.catalog.databases, id: \.self) { Text($0).tag($0) }
+                    }
+                    Button(selection.availableTables.isEmpty ? "Настроить чтение…" : "Роли и доступ…") {
+                        showsRoleAccess = true
                     }
                     if !selection.catalog.schemas.isEmpty {
                         Picker("Схема", selection: Binding(get: { selection.schema }, set: { schema in
@@ -104,7 +121,7 @@ struct SourcePicker: View {
             }
             if let selection {
                 if selection.availableTables.isEmpty {
-                    Text("В этой базе нет таблиц, доступных для чтения.").foregroundStyle(.secondary)
+                    Text("Текущей роли пока недоступны таблицы в этой базе.").foregroundStyle(.secondary)
                 } else {
                     Toggle("Все таблицы схемы", isOn: Binding(get: { selection.tables == nil }, set: { all in
                         self.selection?.tables = all ? nil : Set(selection.availableTables)
@@ -193,6 +210,36 @@ struct SourcePicker: View {
             }
         }
         editsProfile = true
+    }
+
+    private func useRole(_ catalog: RoleCatalog, _ role: DatabaseRole) {
+        guard role.name != catalog.currentRole else { return }
+        let profile = profiles.first {
+            $0.host == catalog.host && $0.port == catalog.port && $0.user == role.name && $0.database == catalog.database
+        }
+        editProfile(profile)
+        if profile == nil {
+            profileDraft = ConnectionProfile(
+                name: role.name, host: catalog.host, port: catalog.port, database: catalog.database, user: role.name
+            )
+        }
+    }
+
+    private func refreshSource() async {
+        guard let selection else { return }
+        do {
+            var refreshed = try await Backend.source(
+                profileID: selection.profileID, connection: selection.connection, database: selection.catalog.database
+            )
+            if refreshed.catalog.schemas.contains(where: { $0.name == selection.schema }) {
+                refreshed.schema = selection.schema
+                refreshed.tables = selection.tables?.intersection(refreshed.availableTables)
+            }
+            self.selection = refreshed
+            errorMessage = nil
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 
     private func saveProfile() async {

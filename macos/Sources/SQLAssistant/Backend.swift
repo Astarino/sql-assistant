@@ -21,6 +21,7 @@ struct AssistantRequest: Encodable, Sendable {
     var tables: [String]? = nil
     var question: String? = nil
     var answers: [Clarification]? = nil
+    var role: String? = nil
 }
 
 struct AssistantReply: Decodable, Sendable {
@@ -32,7 +33,33 @@ struct AssistantReply: Decodable, Sendable {
     let execution: QueryResult?
     let executionError: String?
     let relationships: [TableRelationship]?
+    let roleCatalog: RoleCatalog?
+    let accessSchemas: [DatabaseSchema]?
+    let grantedCount: Int?
     let error: String?
+}
+
+struct RoleCatalog: Decodable, Sendable {
+    let database: String
+    let host: String
+    let port: String
+    let currentRole: String
+    let owner: String
+    let roles: [DatabaseRole]
+
+    func connection(as role: String, password: String) -> ConnectionSettings {
+        ConnectionSettings(host: host, port: port, database: database, user: role, password: password)
+    }
+}
+
+struct DatabaseRole: Decodable, Sendable {
+    let name: String
+    let administrator: Bool
+    let canConnect: Bool
+    let canWrite: Bool
+    let readableTables: Int
+
+    var isReader: Bool { canConnect && !administrator && !canWrite }
 }
 
 struct TableRelationship: Decodable, Sendable {
@@ -71,18 +98,24 @@ enum Backend {
     }
 
     private static func run(_ request: AssistantRequest) throws -> AssistantReply {
-        let project = Bundle.main.bundleURL.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let python = project.appendingPathComponent(".venv/bin/python")
-        guard FileManager.default.isExecutableFile(atPath: python.path) else {
-            throw AssistantError(message: "Запусти приложение через macos/run.sh, чтобы установить зависимости Python.")
-        }
-
         let input = Pipe()
         let output = Pipe()
         let process = Process()
-        process.executableURL = python
-        process.currentDirectoryURL = project
-        process.arguments = ["desktop.py"]
+        let bundle = Bundle.main.bundleURL
+        let bundledBackend = bundle.appendingPathComponent("Contents/Helpers/SQLAssistantBackend")
+        if FileManager.default.isExecutableFile(atPath: bundledBackend.path) {
+            process.executableURL = bundledBackend
+            process.currentDirectoryURL = bundle
+        } else {
+            let project = bundle.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            let python = project.appendingPathComponent(".venv/bin/python")
+            guard FileManager.default.isExecutableFile(atPath: python.path) else {
+                throw AssistantError(message: "Запусти приложение через macos/run.sh, чтобы установить зависимости Python.")
+            }
+            process.executableURL = python
+            process.currentDirectoryURL = project
+            process.arguments = ["desktop.py"]
+        }
         process.standardInput = input
         process.standardOutput = output
         process.standardError = output

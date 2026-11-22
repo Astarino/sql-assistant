@@ -7,6 +7,7 @@ import psycopg
 from psycopg.conninfo import make_conninfo
 from psycopg.rows import dict_row
 
+from access_control import grant_options, grant_read, read_roles
 from build_context import build_context
 from decision import DECISION_SCHEMA, Decision, parse_decision
 from execute_sql import execute_sql, reader_connection_url
@@ -220,7 +221,10 @@ def ask(question: str, answers: list[dict], context: dict, connection_url: str) 
 
 
 def handle(request: dict) -> dict:
+    action = request["action"]
     settings = request.get("connection")
+    if action in {"access_options", "grant_read"} and not settings:
+        raise ValueError("Выбери роль, от имени которой выдаётся доступ.")
     if settings:
         connection_url = make_conninfo(
             host=settings["host"] or None,
@@ -233,15 +237,21 @@ def handle(request: dict) -> dict:
         connection_url = reader_connection_url()
     if database := request.get("database"):
         connection_url = make_conninfo(connection_url, dbname=database)
+    transaction_mode = "off" if action == "grant_read" else "on"
     with psycopg.connect(
         connection_url,
         row_factory=dict_row,
         connect_timeout=5,
-        options="-c default_transaction_read_only=on -c statement_timeout=5000 -c search_path=pg_catalog",
+        options=f"-c default_transaction_read_only={transaction_mode} -c statement_timeout=5000 -c search_path=pg_catalog",
     ) as connection:
-        action = request["action"]
         if action == "catalog":
             return {"catalog": read_catalog(connection)}
+        if action == "roles":
+            return {"role_catalog": read_roles(connection)}
+        if action == "access_options":
+            return {"access_schemas": grant_options(connection, request["role"])}
+        if action == "grant_read":
+            return {"granted_count": grant_read(connection, request["role"], request["schema"], request["tables"])}
         if action == "schemas":
             catalog = read_catalog(connection)
             return {"database": catalog["database"], "schemas": [schema["name"] for schema in catalog["schemas"]]}

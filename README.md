@@ -18,11 +18,15 @@ createdb sql_assistant_demo
 psql -X -v ON_ERROR_STOP=1 -d sql_assistant_demo -f sql/demo.sql -f sql/reader.sql
 ```
 
-Для мини-окна нужны macOS 14+ и инструменты командной строки Xcode.
+Для сборки мини-окна из исходников нужны macOS 14+ и инструменты командной строки Xcode.
 
 ```bash
 ./macos/run.sh
 ```
+
+При первом запуске окно проверяет Ollama, помогает скачать модель и предлагает выбрать базу.
+
+Для тестового ZIP со встроенным Python запусти `./macos/package.sh`. Архив появится в `macos/.build/distribution`.
 
 Пример запуска через CLI.
 

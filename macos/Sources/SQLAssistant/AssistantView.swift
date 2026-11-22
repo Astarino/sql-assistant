@@ -13,6 +13,7 @@ struct AssistantView: View {
     @State private var answers: [Clarification] = []
     @State private var fields: [Clarification] = []
     @State private var showsSourcePicker = false
+    @State private var showsSetup = true
     @FocusState private var questionFocused: Bool
 
     private var canAsk: Bool {
@@ -24,16 +25,26 @@ struct AssistantView: View {
     }
 
     var body: some View {
-        VStack(spacing: 0) {
-            composer
-                .padding(16)
-            Divider()
-            content
+        Group {
+            if showsSetup {
+                SetupView(
+                    connectDefault: connectDefaultSource,
+                    chooseSource: { showsSourcePicker = true },
+                    skip: skipSetup
+                )
+            } else {
+                VStack(spacing: 0) {
+                    composer
+                        .padding(16)
+                    Divider()
+                    content
+                }
+            }
         }
         .background(FloatingWindow(isPinned: isPinned))
         .toolbar {
             ToolbarItemGroup(placement: .primaryAction) {
-                sourceButton
+                if !showsSetup { sourceButton }
                 Button {
                     isPinned.toggle()
                 } label: {
@@ -42,14 +53,11 @@ struct AssistantView: View {
             }
         }
         .sheet(isPresented: $showsSourcePicker) {
-            SourcePicker(current: source) { selection in
+            SourcePicker(current: source, checkDefaultOnOpen: !showsSetup) { selection in
                 source = selection
                 resetResponse()
+                finishSetup()
             }
-        }
-        .task {
-            await connectDefaultSource()
-            questionFocused = true
         }
     }
 
@@ -119,6 +127,9 @@ struct AssistantView: View {
                         Text(errorMessage)
                             .foregroundStyle(.secondary)
                             .textSelection(.enabled)
+                        if errorMessage.contains("Ollama") {
+                            Button("Настроить Ollama…") { showsSetup = true }
+                        }
                     }
                     if let reply {
                         response(reply)
@@ -177,14 +188,29 @@ struct AssistantView: View {
     }
 
     private func connectDefaultSource() async {
+        if source?.canApply == true {
+            finishSetup()
+            return
+        }
         progress = "Подключение к PostgreSQL…"
         defer { progress = nil }
         do {
             source = try await Backend.source()
-            if source?.canApply != true { showsSourcePicker = true }
+            if source?.canApply == true { finishSetup() }
         } catch {
             errorMessage = error.localizedDescription
         }
+    }
+
+    private func finishSetup() {
+        showsSetup = false
+        errorMessage = nil
+        questionFocused = true
+    }
+
+    private func skipSetup() {
+        finishSetup()
+        Task { await connectDefaultSource() }
     }
 
     private func ask(withClarification: Bool = false) async {

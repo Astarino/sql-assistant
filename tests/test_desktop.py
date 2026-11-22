@@ -2,9 +2,13 @@ import json
 import os
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 
 import psycopg
+from psycopg import sql
+from psycopg.rows import dict_row
 
+from access_control import grant_options, grant_read, read_roles
 from desktop import ask, handle
 from instructions import ASSISTANT_INSTRUCTIONS
 
@@ -19,6 +23,13 @@ def sql_response(query: str) -> str:
 
 
 class DesktopTests(unittest.TestCase):
+    def test_grant_requires_explicit_connection(self):
+        with patch("desktop.psycopg.connect") as connect:
+            for action in ("access_options", "grant_read"):
+                with self.subTest(action=action), self.assertRaises(ValueError):
+                    handle({"action": action})
+            connect.assert_not_called()
+
     def test_relationships_from_model_action_only_use_schema_metadata(self):
         relationship = {
             "source_table": "payments",
@@ -73,6 +84,50 @@ class DesktopTests(unittest.TestCase):
 
 @unittest.skipUnless(os.environ.get("RUN_DB_TESTS") == "1", "Нужны учебная база и роль из sql/reader.sql")
 class SourceSelectionTests(unittest.TestCase):
+    def test_grants_only_selected_tables_to_a_reader(self):
+        suffix = uuid4().hex
+        reader = f"sql_assistant_test_reader_{suffix}"
+        schema = f"Access Test {suffix}"
+        selected, unselected = "Selected.Table", "Unselected"
+        with psycopg.connect(dbname="sql_assistant_demo", row_factory=dict_row) as connection:
+            try:
+                connection.execute(sql.SQL("CREATE ROLE {} LOGIN").format(sql.Identifier(reader)))
+                connection.execute(sql.SQL("CREATE SCHEMA {}").format(sql.Identifier(schema)))
+                for table in (selected, unselected):
+                    connection.execute(sql.SQL("CREATE TABLE {} (id int)").format(sql.Identifier(schema, table)))
+
+                catalog = read_roles(connection)
+                self.assertEqual(catalog["database"], "sql_assistant_demo")
+                self.assertIn(reader, [role["name"] for role in catalog["roles"]])
+                options = grant_options(connection, reader)
+                self.assertIn({"name": schema, "tables": [selected, unselected]}, options)
+                with self.assertRaises(ValueError):
+                    grant_read(connection, catalog["current_role"], schema, [selected])
+                with self.assertRaises(ValueError):
+                    grant_read(connection, reader, schema, [selected, "Missing"])
+
+                status = connection.execute(
+                    "SELECT pg_catalog.has_schema_privilege(%s, %s, 'USAGE') AS allowed", (reader, schema)
+                ).fetchone()
+                self.assertFalse(status["allowed"])
+                self.assertEqual(grant_read(connection, reader, schema, [selected, selected]), 1)
+                connection.execute(sql.SQL("SET LOCAL ROLE {}").format(sql.Identifier(reader)))
+                tables = connection.execute(
+                    """
+                    SELECT has_table_privilege(%s, 'SELECT') AS readable,
+                        has_table_privilege(%s, 'INSERT') AS writable,
+                        has_table_privilege(%s, 'SELECT') AS other_readable
+                    """,
+                    (
+                        sql.Identifier(schema, selected).as_string(connection),
+                        sql.Identifier(schema, selected).as_string(connection),
+                        sql.Identifier(schema, unselected).as_string(connection),
+                    ),
+                ).fetchone()
+                self.assertEqual(tables, {"readable": True, "writable": False, "other_readable": False})
+            finally:
+                connection.rollback()
+
     def test_relationship_question_respects_selected_tables_without_model(self):
         request = {
             "action": "ask", "database": "sql_assistant_demo", "schema": "public",
